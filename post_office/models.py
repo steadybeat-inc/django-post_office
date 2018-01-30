@@ -21,11 +21,25 @@ from .connections import connections
 from .settings import context_field_class, get_log_level
 from .validators import validate_email_with_name, validate_template_syntax
 
+from django.contrib.sites import models as sites_models
+from django.conf import settings
+
+from peregrine.core.managers import CurrentSiteMixin
 
 PRIORITY = namedtuple('PRIORITY', 'low medium high now')._make(range(4))
 STATUS = namedtuple('STATUS', 'sent failed queued')._make(range(3))
 
+class EmailQuerySet(models.QuerySet):
+  pass
 
+class EmailManager(CurrentSiteMixin):
+  queryset_class = EmailQuerySet
+  def get_queryset(self):
+    queryset = self.queryset_class(self.model, using=self._db)
+    site = self.get_current_site()
+    if site:
+      queryset = queryset.filter(site=site)
+    return queryset
 
 @python_2_unicode_compatible
 class Email(models.Model):
@@ -68,6 +82,16 @@ class Email(models.Model):
     context = context_field_class(_('Context'),blank=True, null=True)
     backend_alias = models.CharField(_('Backend alias'), blank=True, default='',
                                      max_length=64)
+    site = models.ForeignKey(
+        sites_models.Site,
+        null=True,
+        blank=True,
+        related_name='emails',
+        verbose_name=_('Site'),
+        help_text=_('Related site object.')
+    )
+
+    objects = EmailManager()
 
     class Meta:
         app_label = 'post_office'
@@ -151,6 +175,9 @@ class Email(models.Model):
         return status
 
     def save(self, *args, **kwargs):
+        site = sites_models.Site.objects.get_current()
+        if site.pk is not settings.FALLBACK_SITE_ID:
+          self.site = site
         self.full_clean()
         return super(Email, self).save(*args, **kwargs)
 
@@ -201,6 +228,14 @@ class EmailTemplate(models.Model):
         default='', blank=True)
     default_template = models.ForeignKey('self', related_name='translated_templates',
         null=True, default=None, verbose_name=_('Default template'))
+    site = models.ForeignKey(
+        sites_models.Site,
+        null=True,
+        blank=True,
+        related_name='emailtemplates',
+        verbose_name=_('Site'),
+        help_text=_('Related site object.')
+    )
 
     class Meta:
         app_label = 'post_office'
@@ -215,6 +250,10 @@ class EmailTemplate(models.Model):
         # If template is a translation, use default template's name
         if self.default_template and not self.name:
             self.name = self.default_template.name
+
+        site = sites_models.Site.objects.get_current()
+        if site.pk is not settings.FALLBACK_SITE_ID:
+          self.site = site
 
         template = super(EmailTemplate, self).save(*args, **kwargs)
         cache.delete(self.name)
@@ -241,6 +280,14 @@ class Attachment(models.Model):
     name = models.CharField(_('Name'),max_length=255, help_text=_("The original filename"))
     emails = models.ManyToManyField(Email, related_name='attachments',
                                     verbose_name=_('Email addresses'))
+    site = models.ForeignKey(
+        sites_models.Site,
+        null=True,
+        blank=True,
+        related_name='attachments',
+        verbose_name=_('Site'),
+        help_text=_('Related site object.')
+    )
 
     class Meta:
         app_label = 'post_office'
@@ -249,3 +296,9 @@ class Attachment(models.Model):
 
     def __str__(self):
         return self.name
+
+    def save(self, *args, **kwargs):
+        site = sites_models.Site.objects.get_current()
+        if site.pk is not settings.FALLBACK_SITE_ID:
+          self.site = site
+        return super(Attachment, self).save(*args, **kwargs)

@@ -57,7 +57,7 @@ class EmailAdmin(admin.ModelAdmin):
     actions = [requeue]
 
     def get_queryset(self, request):
-        return super(EmailAdmin, self).get_queryset(request).select_related('template')
+        return super(EmailAdmin, self).get_queryset(request).filter(site_id=request.site.pk).select_related('template')
 
     def to_display(self, instance):
         return ', '.join(instance.to)
@@ -118,7 +118,7 @@ class EmailTemplateAdmin(admin.ModelAdmin):
     }
 
     def get_queryset(self, request):
-        return self.model.objects.filter(default_template__isnull=True)
+        return self.model.objects.filter(site_id=request.site.pk).filter(default_template__isnull=True)
 
     def description_shortened(self, instance):
         return Truncator(instance.description.split('\n')[0]).chars(200)
@@ -133,6 +133,9 @@ class EmailTemplateAdmin(admin.ModelAdmin):
 
 class AttachmentAdmin(admin.ModelAdmin):
     list_display = ('name', 'file', )
+
+    def get_queryset(self, request):
+        return super(AttachmentAdmin, self).get_queryset(request).filter(site_id=request.site.pk)
 
 
 admin.site.register(Email, EmailAdmin)

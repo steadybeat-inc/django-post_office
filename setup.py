@@ -3,6 +3,7 @@ import sys
 from setuptools import setup
 from setuptools.command.test import test as TestCommand
 
+
 class Tox(TestCommand):
 
     def initialize_options(self):
@@ -24,11 +25,13 @@ class Tox(TestCommand):
         errno = tox.cmdline(args=args)
         sys.exit(errno)
 
+
 TESTS_REQUIRE = ['tox >= 2.3']
+
 
 setup(
     name='django-post_office',
-    version='2.0.8',
+    version='3.0.4',
     author='Selwin Ong',
     author_email='selwin.ong@gmail.com',
     packages=['post_office'],
@@ -39,7 +42,7 @@ setup(
     zip_safe=False,
     include_package_data=True,
     package_data={'': ['README.rst']},
-    install_requires=['django>=1.4', 'jsonfield'],
+    install_requires=['django>=1.8', 'jsonfield'],
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'Environment :: Web Environment',
@@ -49,10 +52,12 @@ setup(
         'Operating System :: OS Independent',
         'Programming Language :: Python',
         'Programming Language :: Python :: 2',
-        'Programming Language :: Python :: 2.6',
         'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.3',
+        'Programming Language :: Python :: 3.4',
+        'Programming Language :: Python :: 3.5',
+        'Programming Language :: Python :: 3.6',
         'Topic :: Internet :: WWW/HTTP',
         'Topic :: Software Development :: Libraries :: Python Modules',
     ],

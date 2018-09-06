@@ -1,12 +1,15 @@
+import django
+import json
+
 from datetime import datetime, timedelta
 
 from django.conf import settings as django_settings
 from django.core import mail
+from django.core import serializers
 from django.core.files.base import ContentFile
-from django.core.mail import EmailMessage, EmailMultiAlternatives, get_connection
+from django.core.mail import EmailMessage, EmailMultiAlternatives
 from django.forms.models import modelform_factory
 from django.test import TestCase
-from django.test.utils import override_settings
 
 from ..models import Email, Log, PRIORITY, STATUS, EmailTemplate, Attachment
 from ..mail import send
@@ -270,8 +273,34 @@ class ModelTest(TestCase):
         email.attachments.add(attachment)
         message = email.email_message()
 
-        self.assertEqual(message.attachments,
-                         [('test.txt', b'test file content', None)])
+        # https://docs.djangoproject.com/en/1.11/releases/1.11/#email
+        if django.VERSION >= (1, 11,):
+            self.assertEqual(message.attachments,
+                             [('test.txt', 'test file content', 'text/plain')])
+        else:
+            self.assertEqual(message.attachments,
+                             [('test.txt', b'test file content', None)])
+
+    def test_attachments_email_message_with_mimetype(self):
+        email = Email.objects.create(to=['to@example.com'],
+                                     from_email='from@example.com',
+                                     subject='Subject')
+
+        attachment = Attachment()
+        attachment.file.save(
+            'test.txt', content=ContentFile('test file content'), save=True
+        )
+        attachment.mimetype = 'text/plain'
+        attachment.save()
+        email.attachments.add(attachment)
+        message = email.email_message()
+
+        if django.VERSION >= (1, 11,):
+            self.assertEqual(message.attachments,
+                             [('test.txt', 'test file content', 'text/plain')])
+        else:
+            self.assertEqual(message.attachments,
+                             [('test.txt', b'test file content', 'text/plain')])
 
     def test_translated_template_uses_default_templates_name(self):
         template = EmailTemplate.objects.create(name='name')
@@ -283,3 +312,13 @@ class ModelTest(TestCase):
                          '<EmailTemplate: test en>')
         self.assertEqual(repr(Email(to=['test@example.com'])),
                          "<Email: ['test@example.com']>")
+
+    def test_natural_key(self):
+        template = EmailTemplate.objects.create(name='name')
+        self.assertEqual(template, EmailTemplate.objects.get_by_natural_key(*template.natural_key()))
+
+        data = serializers.serialize('json', [template], use_natural_primary_keys=True)
+        self.assertNotIn('pk', json.loads(data)[0])
+        deserialized_objects = serializers.deserialize('json', data, use_natural_primary_keys=True)
+        list(deserialized_objects)[0].save()
+        self.assertEqual(EmailTemplate.objects.count(), 1)

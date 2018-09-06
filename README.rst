@@ -11,14 +11,14 @@ Some awesome features are:
 * Supports database based email templates
 * Built in scheduling support
 * Works well with task queues like `RQ <http://python-rq.org>`_ or `Celery <http://www.celeryproject.org>`_
-* Uses multiprocessing to send a large number of emails in parallel
+* Uses multiprocessing (and threading) to send a large number of emails in parallel
 * Supports multilingual email templates (i18n)
 
 
 Dependencies
 ============
 
-* `django >= 1.4 <http://djangoproject.com/>`_
+* `django >= 1.8 <http://djangoproject.com/>`_
 * `django-jsonfield <https://github.com/bradjasper/django-jsonfield>`_
 
 
@@ -34,29 +34,22 @@ Installation
 
 * Add ``post_office`` to your INSTALLED_APPS in django's ``settings.py``:
 
-.. code-block:: python
+  .. code-block:: python
 
     INSTALLED_APPS = (
         # other apps
         "post_office",
     )
 
-* Run ``syncdb``::
+* Run ``migrate``::
 
-    python manage.py syncdb
+    python manage.py migrate
 
-* Set ``post_office.EmailBackend`` as your ``EMAIL_BACKEND`` in django's ``settings.py``::
+* Set ``post_office.EmailBackend`` as your ``EMAIL_BACKEND`` in django's ``settings.py``:
+
+  .. code-block:: python
 
     EMAIL_BACKEND = 'post_office.EmailBackend'
-
-If you're still on Django <= 1.6 and use South to manage your migrations,
-you'll need to put the following in ``settings.py``:
-
-.. code-block:: python
-
-    SOUTH_MIGRATION_MODULES = {
-        "post_office": "post_office.south_migrations",
-    }
 
 
 Quickstart
@@ -247,6 +240,7 @@ If you want to send an email with attachments:
         attachments={
             'attachment1.doc': '/path/to/file/file1.doc',
             'attachment2.txt': ContentFile('file content'),
+            'attachment3.txt': { 'file': ContentFile('file content'), 'mimetype': 'text/plain'},
         }
     )
 
@@ -360,15 +354,15 @@ Management Commands
 * ``send_queued_mail`` - send queued emails, those aren't successfully sent
   will be marked as ``failed``. Accepts the following arguments:
 
-+---------------------------+--------------------------------------------------++
-| Argument                  | Description                                      ||
-+---------------------------+--------------------------------------------------++
-| ``--processes`` or ``-p`` | Number of parallel processes to send email.      ||
-|                           | Defaults to 1                                    ||
-+---------------------------+--------------------------------------------------++
-| ``--lockfile`` or ``-L``  | Full path to file used as lock file. Defaults to ||
-|                           | ``/tmp/post_office.lock``                        ||
-+---------------------------+--------------------------------------------------++
++---------------------------+--------------------------------------------------+
+| Argument                  | Description                                      |
++---------------------------+--------------------------------------------------+
+| ``--processes`` or ``-p`` | Number of parallel processes to send email.      |
+|                           | Defaults to 1                                    |
++---------------------------+--------------------------------------------------+
+| ``--lockfile`` or ``-L``  | Full path to file used as lock file. Defaults to |
+|                           | ``/tmp/post_office.lock``                        |
++---------------------------+--------------------------------------------------+
 
 
 * ``cleanup_mail`` - delete all emails created before an X number of days
@@ -395,7 +389,7 @@ number of queued emails fetched in one batch.
 
     # Put this in settings.py
     POST_OFFICE = {
-        'BATCH_SIZE': 5000
+        'BATCH_SIZE': 50
     }
 
 Default Priority
@@ -499,6 +493,26 @@ example:
         },
     }
 
+
+Threads
+-------
+
+``post-office`` >= 3.0 allows you to use multiple threads to dramatically speed up
+the speed at which emails are sent. By default, ``post-office`` uses 5 threads per process.
+You can tweak this setting by changing ``THREADS_PER_PROCESS`` setting.
+
+This may dramatically increase the speed of bulk email delivery, depending on which email
+backends you use. In my tests, multi threading speeds up email backends that use HTTP based
+(REST) delivery mechanisms but doesn't seem to help SMTP based backends.
+
+.. code-block:: python
+
+    # Put this in settings.py
+    POST_OFFICE = {
+        'THREADS_PER_PROCESS': 10
+    }
+
+
 Performance
 ===========
 
@@ -574,61 +588,34 @@ or::
 Changelog
 =========
 
-Version 2.0.8
+Version 3.0.4
 -------------
-* Django 1.10 compatibility fixes. Thanks @hockeybuggy!
-* Fixed an issue where Django would sometimes create migration files for post-office. Thanks @fizista!
+* Added compatibility with Django 2.0. Thanks @PreActionTech and @PetrDlouhy!
+* Added natural key support to `EmailTemplate` model. Thanks @maximlomakin!
 
-Version 2.0.7
+Version 3.0.2
 -------------
-* Fixed an issue with sending email to recipients with display name. Thanks @yprez!
+- Fixed memory leak when multiprocessing is used.
+- Fixed a possible error when adding a new email from Django admin. Thanks @ivlevdenis!
 
-Version 2.0.6
+
+Version 3.0.2
 -------------
-* Fixes Django 1.10 deprecation warnings and other minor improvements. Thanks @yprez!
-* Email.subject can now accept up to 989 characters. This should also fix minor migration issues. Thanks @yprez!
+- `_send_bulk` now properly catches exceptions when preparing email messages.
 
-Version 2.0.5
+
+Version 3.0.1
 -------------
-* Fixes more Django 1.8 deprecation warnings.
-* `Email.dispatch()` now closes backend connection by default. Thanks @zwack
-* Compatibility fixes for Django 1.9. Thanks @yprez!
+- Fixed an infinite loop bug in `send_queued_mail` management command.
 
-Version 2.0.1
+
+Version 3.0.0
 -------------
-* Fixes migration related packaging issues.
-* Fixes deprecation warning in Django 1.8.
-
-Version 2.0
------------
-* Added multi backend support. Now you can use multiple email backends with ``post-office``!
-* Added multi language support. Thanks @jrief!
-
-Version 1.1.2
--------------
-* Adds Django 1.8 compatibility.
-
-Version 1.1.1
--------------
-* Fixes a migration error. Thanks @garry-cairns!
-
-Version 1.1.0
--------------
-* Support for Django 1.7 migrations. If you're still on Django < 1.7,
-  South migration files are stored in ``south_migrations`` directory.
-
-Version 1.0.0
--------------
-* **IMPORTANT**: in older versions, passing multiple ``recipients`` into
-  ``mail.send()`` will create multiple emails, each addressed to one recipient.
-  Starting from ``1.0.0``, only one email with multiple recipients will be created.
-* Added ``LOG_LEVEL`` setting.
-* ``mail.send()`` now supports ``cc`` and ``bcc``.
-  Thanks Ștefan Daniel Mihăilă (@stefan-mihaila)!
-* Improvements to ``admin`` interface; you can now easily requeue multiple emails.
-* ``Log`` model now stores the type of exception caught during sending.
-* ``send_templated_mail`` command is now deprecated.
-* Added ``EMAIL_BACKEND`` setting to the new dictionary-styled settings.
+* `_send_bulk` now allows each process to use multiple threads to send emails.
+* Added support for mimetypes in email attachments. Thanks @clickonchris!
+* An `EmailTemplate` can now be used as defaults multiple times in one language. Thanks @sac7e!
+* `send_queued_mail` management command will now check whether there are more queued emails to be sent before exiting.
+* Drop support for Django < 1.8. Thanks @fendyh!
 
 
 Full changelog can be found `here <https://github.com/ui/django-post_office/blob/master/CHANGELOG.md>`_.

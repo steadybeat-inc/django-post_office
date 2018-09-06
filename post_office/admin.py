@@ -33,6 +33,8 @@ class CommaSeparatedEmailWidget(TextInput):
 
     def _format_value(self, value):
         # If the value is a string wrap it in a list so it does not get sliced.
+        if not value:
+            return ''
         if isinstance(value, six.string_types):
             value = [value, ]
         return ','.join([item for item in value])
@@ -49,6 +51,8 @@ requeue.short_description = 'Requeue selected emails'
 class EmailAdmin(admin.ModelAdmin):
     list_display = ('id', 'to_display', 'subject', 'template',
                     'status', 'last_updated')
+    search_fields = ['to', 'subject']
+    date_hierarchy = 'last_updated'
     inlines = [LogInline]
     list_filter = ['status']
     formfield_overrides = {
@@ -75,12 +79,13 @@ class SubjectField(TextInput):
         super(SubjectField, self).__init__(*args, **kwargs)
         self.attrs.update({'style': 'width: 610px;'})
 
+
 class EmailTemplateAdminForm(forms.ModelForm):
- 
-    language = forms.ChoiceField(choices=settings.LANGUAGES, required=False, 
+
+    language = forms.ChoiceField(choices=settings.LANGUAGES, required=False,
                                  help_text=_("Render template in alternative language"),
                                  label=_("Language"))
- 
+
     class Meta:
         model = EmailTemplate
         fields = ('name', 'description', 'subject',
@@ -126,9 +131,16 @@ class EmailTemplateAdmin(admin.ModelAdmin):
     description_shortened.admin_order_field = 'description'
 
     def languages_compact(self, instance):
-        languages = [tt.language for tt in instance.translated_templates.all()]
+        languages = [tt.language for tt in instance.translated_templates.order_by('language')]
         return ', '.join(languages)
     languages_compact.short_description = _("Languages")
+
+    def save_model(self, request, obj, form, change):
+        obj.save()
+
+        # if the name got changed, also change the translated templates to match again
+        if 'name' in form.changed_data:
+            obj.translated_templates.update(name=obj.name)
 
 
 class AttachmentAdmin(admin.ModelAdmin):

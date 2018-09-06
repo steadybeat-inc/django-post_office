@@ -252,7 +252,7 @@ class EmailTemplate(models.Model):
             self.name = self.default_template.name
 
         site = sites_models.Site.objects.get_current()
-        if site.pk is not settings.FALLBACK_SITE_ID:
+        if site.pk:
           self.site = site
 
         template = super(EmailTemplate, self).save(*args, **kwargs)

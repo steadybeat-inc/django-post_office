@@ -176,7 +176,7 @@ class Email(models.Model):
 
     def save(self, *args, **kwargs):
         site = sites_models.Site.objects.get_current()
-        if site.pk is not settings.FALLBACK_SITE_ID:
+        if site.pk:
           self.site = site
         self.full_clean()
         return super(Email, self).save(*args, **kwargs)

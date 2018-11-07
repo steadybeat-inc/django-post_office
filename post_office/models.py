@@ -36,7 +36,7 @@ class EmailManager(CurrentSiteMixin):
   def get_queryset(self):
     queryset = self.queryset_class(self.model, using=self._db)
     site = self.get_current_site()
-    if site:
+    if site and site.domain is not 'localhost':
       queryset = queryset.filter(site=site)
     return queryset
 

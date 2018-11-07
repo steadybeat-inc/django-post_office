@@ -28,17 +28,16 @@ from peregrine.core.managers import CurrentSiteMixin
 PRIORITY = namedtuple('PRIORITY', 'low medium high now')._make(range(4))
 STATUS = namedtuple('STATUS', 'sent failed queued')._make(range(3))
 
-class EmailQuerySet(models.QuerySet):
-  pass
 
-class EmailManager(CurrentSiteMixin):
-  queryset_class = EmailQuerySet
+class EmailManager(CurrentSiteMixin, models.Manager):
+
   def get_queryset(self):
     queryset = self.queryset_class(self.model, using=self._db)
     site = self.get_current_site()
     if site and site.domain is not 'localhost':
       queryset = queryset.filter(site=site)
     return queryset
+
 
 @python_2_unicode_compatible
 class Email(models.Model):

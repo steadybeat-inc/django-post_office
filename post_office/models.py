@@ -30,13 +30,12 @@ STATUS = namedtuple('STATUS', 'sent failed queued')._make(range(3))
 
 
 class EmailManager(CurrentSiteMixin, models.Manager):
-
-  def get_queryset(self):
-    queryset = self.queryset_class(self.model, using=self._db)
-    site = self.get_current_site()
-    if site and site.domain is not 'localhost':
-      queryset = queryset.filter(site=site)
-    return queryset
+    def get_queryset(self):
+        queryset = super(EmailManager, self).get_queryset()
+        site = self.get_current_site()
+        if site and site.domain is not 'localhost':
+            queryset = queryset.filter(site=site)
+        return queryset
 
 
 @python_2_unicode_compatible
@@ -194,7 +193,7 @@ class Email(models.Model):
     def save(self, *args, **kwargs):
         site = sites_models.Site.objects.get_current()
         if site.pk:
-          self.site = site
+            self.site = site
         self.full_clean()
         return super(Email, self).save(*args, **kwargs)
 
@@ -239,17 +238,18 @@ class EmailTemplate(models.Model):
     created = models.DateTimeField(auto_now_add=True)
     last_updated = models.DateTimeField(auto_now=True)
     subject = models.CharField(max_length=255, blank=True,
-        verbose_name=_("Subject"), validators=[validate_template_syntax])
+                               verbose_name=_("Subject"), validators=[validate_template_syntax])
     content = models.TextField(blank=True,
-        verbose_name=_("Content"), validators=[validate_template_syntax])
+                               verbose_name=_("Content"), validators=[validate_template_syntax])
     html_content = models.TextField(blank=True,
-        verbose_name=_("HTML content"), validators=[validate_template_syntax])
+                                    verbose_name=_("HTML content"), validators=[validate_template_syntax])
     language = models.CharField(max_length=12,
-        verbose_name=_("Language"),
-        help_text=_("Render template in alternative language"),
-        default='', blank=True)
+                                verbose_name=_("Language"),
+                                help_text=_("Render template in alternative language"),
+                                default='', blank=True)
     default_template = models.ForeignKey('self', related_name='translated_templates',
-null=True, default=None, verbose_name=_('Default template'), on_delete=models.CASCADE)
+                                         null=True, default=None, verbose_name=_('Default template'),
+                                         on_delete=models.CASCADE)
     site = models.ForeignKey(
         sites_models.Site,
         null=True,
@@ -281,7 +281,7 @@ null=True, default=None, verbose_name=_('Default template'), on_delete=models.CA
 
         site = sites_models.Site.objects.get_current()
         if site.pk:
-          self.site = site
+            self.site = site
 
         template = super(EmailTemplate, self).save(*args, **kwargs)
         cache.delete(self.name)
@@ -308,7 +308,7 @@ class Attachment(models.Model):
     name = models.CharField(_('Name'), max_length=255, help_text=_("The original filename"))
     emails = models.ManyToManyField(Email, related_name='attachments',
                                     verbose_name=_('Email addresses'))
-    mimetype = models.CharField(max_length=255, default='', blank=True)    
+    mimetype = models.CharField(max_length=255, default='', blank=True)
 
     site = models.ForeignKey(
         sites_models.Site,
@@ -330,5 +330,5 @@ class Attachment(models.Model):
     def save(self, *args, **kwargs):
         site = sites_models.Site.objects.get_current()
         if site.pk:
-          self.site = site
+            self.site = site
         return super(Attachment, self).save(*args, **kwargs)

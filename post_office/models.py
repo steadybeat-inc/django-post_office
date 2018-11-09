@@ -25,6 +25,10 @@ from django.conf import settings
 
 from peregrine.core.managers import CurrentSiteMixin
 
+from .logutils import setup_loghandlers
+
+logger = setup_loghandlers("INFO")
+
 PRIORITY = namedtuple('PRIORITY', 'low medium high now')._make(range(4))
 STATUS = namedtuple('STATUS', 'sent failed queued')._make(range(3))
 
@@ -145,8 +149,11 @@ class Email(models.Model):
                 headers=self.headers, connection=connection)
 
         for attachment in self.attachments.all():
-            msg.attach(attachment.name, attachment.file.read(), mimetype=attachment.mimetype or None)
-            attachment.file.close()
+            try:
+                msg.attach(attachment.name, attachment.file.read(), mimetype=attachment.mimetype or None)
+                attachment.file.close()
+            except Exception as e:
+                logger.exception('failed to attach file: %s' e)
 
         self._cached_email_message = msg
         return msg

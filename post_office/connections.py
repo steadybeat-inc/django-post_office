@@ -3,6 +3,9 @@ from threading import local
 from django.core.mail import get_connection
 
 from .settings import get_backend
+from .logutils import setup_loghandlers
+
+logger = setup_loghandlers("INFO")
 
 
 # Copied from Django 1.8's django.core.cache.CacheHandler
@@ -38,7 +41,10 @@ class ConnectionHandler(object):
 
     def close(self):
         for connection in self.all():
-            connection.close()
+            try:
+                connection.close()
+            except AttributeError:
+                logger.info('connection seems to have already been closed, skipping...')
 
 
 connections = ConnectionHandler()

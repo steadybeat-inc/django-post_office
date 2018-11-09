@@ -153,7 +153,7 @@ class Email(models.Model):
                 msg.attach(attachment.name, attachment.file.read(), mimetype=attachment.mimetype or None)
                 attachment.file.close()
             except Exception as e:
-                logger.exception('failed to attach file: %s' e)
+                logger.exception('failed to attach file: %s' % e)
 
         self._cached_email_message = msg
         return msg
